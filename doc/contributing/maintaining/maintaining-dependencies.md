@@ -23,7 +23,7 @@ This a list of all the dependencies:
 * [minimatch 9.0.3][]
 * [nghttp2 1.58.0][]
 * [nghttp3 0.7.0][]
-* [ngtcp2 0.8.1][]
+* [ngtcp2 1.0.1][]
 * [npm 9.6.7][]
 * [openssl 3.0.8][]
 * [postject 1.0.0-alpha.6][]
@@ -235,7 +235,7 @@ See [maintaining-http][] for more informations.
 The [nghttp3](https://github.com/ngtcp2/nghttp3) dependency is HTTP/3 library
 written in C. See ngtcp2 for more informations.
 
-### ngtcp2 0.8.1
+### ngtcp2 1.0.1
 
 The ngtcp2 and nghttp3 dependencies provide the core functionality for
 QUIC and HTTP/3.
@@ -346,7 +346,7 @@ performance improvements not currently available in standard zlib.
 [minimatch 9.0.3]: #minimatch-903
 [nghttp2 1.58.0]: #nghttp2-1580
 [nghttp3 0.7.0]: #nghttp3-070
-[ngtcp2 0.8.1]: #ngtcp2-081
+[ngtcp2 1.0.1]: #ngtcp2-101
 [npm 9.6.7]: #npm-967
 [openssl 3.0.8]: #openssl-308
 [postject 1.0.0-alpha.6]: #postject-100-alpha6

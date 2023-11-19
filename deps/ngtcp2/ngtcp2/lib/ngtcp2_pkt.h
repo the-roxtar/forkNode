@@ -88,9 +88,9 @@
    client stream ID. */
 #define NGTCP2_MAX_CLIENT_STREAM_ID_UNI ((int64_t)0x3ffffffffffffffell)
 
-/* NGTCP2_MAX_NUM_ACK_BLK is the maximum number of Additional ACK
-   blocks which this library can create, or decode. */
-#define NGTCP2_MAX_ACK_BLKS 32
+/* NGTCP2_MAX_NUM_ACK_RANGES is the maximum number of Additional ACK
+   ranges which this library can create, or decode. */
+#define NGTCP2_MAX_ACK_RANGES 32
 
 /* NGTCP2_MAX_PKT_NUM is the maximum packet number. */
 #define NGTCP2_MAX_PKT_NUM ((int64_t)((1ll << 62) - 1))
@@ -124,22 +124,23 @@
    v1. */
 #define NGTCP2_PKT_TYPE_RETRY_V1 0x3
 
-/* NGTCP2_PKT_TYPE_INITIAL_V2_DRAFT is Initial long header packet type
-   for QUIC v2 draft. */
-#define NGTCP2_PKT_TYPE_INITIAL_V2_DRAFT 0x1
-/* NGTCP2_PKT_TYPE_0RTT_V2_DRAFT is 0RTT long header packet type for
-   QUIC v2 draft. */
-#define NGTCP2_PKT_TYPE_0RTT_V2_DRAFT 0x2
-/* NGTCP2_PKT_TYPE_HANDSHAKE_V2_DRAFT is Handshake long header packet
-   type for QUIC v2 draft. */
-#define NGTCP2_PKT_TYPE_HANDSHAKE_V2_DRAFT 0x3
-/* NGTCP2_PKT_TYPE_RETRY_V2_DRAFT is Retry long header packet type for
-   QUIC v2 draft. */
-#define NGTCP2_PKT_TYPE_RETRY_V2_DRAFT 0x0
+/* NGTCP2_PKT_TYPE_INITIAL_V2 is Initial long header packet type for
+   QUIC v2. */
+#define NGTCP2_PKT_TYPE_INITIAL_V2 0x1
+/* NGTCP2_PKT_TYPE_0RTT_V2 is 0RTT long header packet type for QUIC
+   v2. */
+#define NGTCP2_PKT_TYPE_0RTT_V2 0x2
+/* NGTCP2_PKT_TYPE_HANDSHAKE_V2 is Handshake long header packet type
+   for QUIC v2. */
+#define NGTCP2_PKT_TYPE_HANDSHAKE_V2 0x3
+/* NGTCP2_PKT_TYPE_RETRY_V2 is Retry long header packet type for QUIC
+   v2. */
+#define NGTCP2_PKT_TYPE_RETRY_V2 0x0
 
 typedef struct ngtcp2_pkt_retry {
   ngtcp2_cid odcid;
-  ngtcp2_vec token;
+  uint8_t *token;
+  size_t tokenlen;
   uint8_t tag[NGTCP2_RETRY_TAGLEN];
 } ngtcp2_pkt_retry;
 
@@ -172,14 +173,20 @@ typedef enum {
   NGTCP2_FRAME_DATAGRAM_LEN = 0x31,
 } ngtcp2_frame_type;
 
+/* ngtcp2_stream represents STREAM and CRYPTO frames. */
 typedef struct ngtcp2_stream {
   uint8_t type;
   /**
    * flags of decoded STREAM frame.  This gets ignored when encoding
-   * STREAM frame.
+   * STREAM frame.  CRYPTO frame does not include this field, and must
+   * set it to 0.
    */
   uint8_t flags;
+  /* CRYPTO frame does not include this field, and must set it to
+     0. */
   uint8_t fin;
+  /* CRYPTO frame does not include this field, and must set it to
+     0. */
   int64_t stream_id;
   uint64_t offset;
   /* datacnt is the number of elements that data contains.  Although
@@ -190,10 +197,10 @@ typedef struct ngtcp2_stream {
   ngtcp2_vec data[1];
 } ngtcp2_stream;
 
-typedef struct ngtcp2_ack_blk {
+typedef struct ngtcp2_ack_range {
   uint64_t gap;
-  uint64_t blklen;
-} ngtcp2_ack_blk;
+  uint64_t len;
+} ngtcp2_ack_range;
 
 typedef struct ngtcp2_ack {
   uint8_t type;
@@ -209,9 +216,9 @@ typedef struct ngtcp2_ack {
     uint64_t ect1;
     uint64_t ce;
   } ecn;
-  uint64_t first_ack_blklen;
-  size_t num_blks;
-  ngtcp2_ack_blk blks[1];
+  uint64_t first_ack_range;
+  size_t rangecnt;
+  ngtcp2_ack_range ranges[1];
 } ngtcp2_ack;
 
 typedef struct ngtcp2_padding {
@@ -300,20 +307,10 @@ typedef struct ngtcp2_path_response {
   uint8_t data[NGTCP2_PATH_CHALLENGE_DATALEN];
 } ngtcp2_path_response;
 
-typedef struct ngtcp2_crypto {
-  uint8_t type;
-  uint64_t offset;
-  /* datacnt is the number of elements that data contains.  Although
-     the length of data is 1 in this definition, the library may
-     allocate extra bytes to hold more elements. */
-  size_t datacnt;
-  /* data is the array of ngtcp2_vec which references data. */
-  ngtcp2_vec data[1];
-} ngtcp2_crypto;
-
 typedef struct ngtcp2_new_token {
   uint8_t type;
-  ngtcp2_vec token;
+  uint8_t *token;
+  size_t tokenlen;
 } ngtcp2_new_token;
 
 typedef struct ngtcp2_retire_connection_id {
@@ -358,7 +355,6 @@ typedef union ngtcp2_frame {
   ngtcp2_stop_sending stop_sending;
   ngtcp2_path_challenge path_challenge;
   ngtcp2_path_response path_response;
-  ngtcp2_crypto crypto;
   ngtcp2_new_token new_token;
   ngtcp2_retire_connection_id retire_connection_id;
   ngtcp2_handshake_done handshake_done;
@@ -454,7 +450,8 @@ ngtcp2_ssize ngtcp2_pkt_encode_hd_short(uint8_t *out, size_t outlen,
  * frame if it succeeds, or one of the following negative error codes:
  *
  * :enum:`NGTCP2_ERR_FRAME_ENCODING`
- *     Frame is badly formatted; or frame type is unknown.
+ *     Frame is badly formatted; or frame type is unknown; or
+ *     |payloadlen| is 0.
  */
 ngtcp2_ssize ngtcp2_pkt_decode_frame(ngtcp2_frame *dest, const uint8_t *payload,
                                      size_t payloadlen);
@@ -554,9 +551,9 @@ ngtcp2_ssize ngtcp2_pkt_decode_ack_frame(ngtcp2_ack *dest,
  * This function returns the exact number of bytes read to decode
  * PADDING frames.
  */
-size_t ngtcp2_pkt_decode_padding_frame(ngtcp2_padding *dest,
-                                       const uint8_t *payload,
-                                       size_t payloadlen);
+ngtcp2_ssize ngtcp2_pkt_decode_padding_frame(ngtcp2_padding *dest,
+                                             const uint8_t *payload,
+                                             size_t payloadlen);
 
 /*
  * ngtcp2_pkt_decode_reset_stream_frame decodes RESET_STREAM frame
@@ -639,11 +636,7 @@ ngtcp2_ssize ngtcp2_pkt_decode_max_streams_frame(ngtcp2_max_streams *dest,
  * length |payloadlen|.  The result is stored in the object pointed by
  * |dest|.  PING frame must start at payload[0].  This function
  * finishes when it decodes one PING frame, and returns the exact
- * number of bytes read to decode a frame if it succeeds, or one of
- * the following negative error codes:
- *
- * NGTCP2_ERR_FRAME_ENCODING
- *     Payload is too short to include PING frame.
+ * number of bytes read to decode a frame.
  */
 ngtcp2_ssize ngtcp2_pkt_decode_ping_frame(ngtcp2_ping *dest,
                                           const uint8_t *payload,
@@ -773,7 +766,7 @@ ngtcp2_ssize ngtcp2_pkt_decode_path_response_frame(ngtcp2_path_response *dest,
  * NGTCP2_ERR_FRAME_ENCODING
  *     Payload is too short to include CRYPTO frame.
  */
-ngtcp2_ssize ngtcp2_pkt_decode_crypto_frame(ngtcp2_crypto *dest,
+ngtcp2_ssize ngtcp2_pkt_decode_crypto_frame(ngtcp2_stream *dest,
                                             const uint8_t *payload,
                                             size_t payloadlen);
 
@@ -814,11 +807,7 @@ ngtcp2_pkt_decode_retire_connection_id_frame(ngtcp2_retire_connection_id *dest,
  * object pointed by |dest|.  HANDSHAKE_DONE frame must start at
  * payload[0].  This function finishes when it decodes one
  * HANDSHAKE_DONE frame, and returns the exact number of bytes read to
- * decode a frame if it succeeds, or one of the following negative
- * error codes:
- *
- * NGTCP2_ERR_FRAME_ENCODING
- *     Payload is too short to include HANDSHAKE_DONE frame.
+ * decode a frame.
  */
 ngtcp2_ssize ngtcp2_pkt_decode_handshake_done_frame(ngtcp2_handshake_done *dest,
                                                     const uint8_t *payload,
@@ -1076,7 +1065,7 @@ ngtcp2_pkt_encode_path_response_frame(uint8_t *out, size_t outlen,
  *     Buffer does not have enough capacity to write a frame.
  */
 ngtcp2_ssize ngtcp2_pkt_encode_crypto_frame(uint8_t *out, size_t outlen,
-                                            const ngtcp2_crypto *fr);
+                                            const ngtcp2_stream *fr);
 
 /*
  * ngtcp2_pkt_encode_new_token_frame encodes NEW_TOKEN frame |fr| into
@@ -1142,14 +1131,19 @@ int64_t ngtcp2_pkt_adjust_pkt_num(int64_t max_pkt_num, int64_t pkt_num,
 
 /*
  * ngtcp2_pkt_validate_ack checks that ack is malformed or not.
+ * |min_pkt_num| is the minimum packet number that an endpoint sends.
+ * It is an error to receive acknowledgements for a packet less than
+ * |min_pkt_num|.
  *
  * This function returns 0 if it succeeds, or one of the following
  * negative error codes:
  *
  * NGTCP2_ERR_ACK_FRAME
  *     ACK frame is malformed
+ * NGTCP2_ERR_PROTO
+ *     |fr| contains a packet number less than |min_pkt_num|.
  */
-int ngtcp2_pkt_validate_ack(ngtcp2_ack *fr);
+int ngtcp2_pkt_validate_ack(ngtcp2_ack *fr, int64_t min_pkt_num);
 
 /*
  * ngtcp2_pkt_stream_max_datalen returns the maximum number of bytes

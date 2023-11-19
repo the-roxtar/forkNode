@@ -75,9 +75,12 @@ typedef struct ngtcp2_frame_chain ngtcp2_frame_chain;
    In this case, without this flag, we are unable to distinguish
    assigned value from unassigned one.  */
 #define NGTCP2_STRM_FLAG_APP_ERROR_CODE_SET 0x100u
-/* NGTCP2_STRM_FLAG_STREAM_STOP_SENDING_CALLED is set when
-   stream_stop_sending callback is called. */
-#define NGTCP2_STRM_FLAG_STREAM_STOP_SENDING_CALLED 0x200u
+/* NGTCP2_STRM_FLAG_SEND_STOP_SENDING is set when STOP_SENDING frame
+   should be sent. */
+#define NGTCP2_STRM_FLAG_SEND_STOP_SENDING 0x200u
+/* NGTCP2_STRM_FLAG_SEND_RESET_STREAM is set when RESET_STREAM frame
+   should be sent. */
+#define NGTCP2_STRM_FLAG_SEND_RESET_STREAM 0x400u
 
 typedef struct ngtcp2_strm ngtcp2_strm;
 
@@ -96,10 +99,10 @@ struct ngtcp2_strm {
            remote endpoint acknowledges data in out-of-order.  After that,
            acked_offset is used instead. */
         uint64_t cont_acked_offset;
-        /* streamfrq contains STREAM frame for retransmission.  The flow
-           control credits have been paid when they are transmitted first
-           time.  There are no restriction regarding flow control for
-           retransmission. */
+        /* streamfrq contains STREAM or CRYPTO frame for
+           retransmission.  The flow control credits have been paid
+           when they are transmitted first time.  There are no
+           restriction regarding flow control for retransmission. */
         ngtcp2_ksl *streamfrq;
         /* offset is the next offset of outgoing data.  In other words, it
            is the number of bytes sent in this stream without
@@ -108,6 +111,9 @@ struct ngtcp2_strm {
         /* max_tx_offset is the maximum offset that local endpoint can
            send for this stream. */
         uint64_t max_offset;
+        /* last_blocked_offset is the largest offset where the
+           transmission of stream data is blocked. */
+        uint64_t last_blocked_offset;
         /* last_max_stream_data_ts is the timestamp when last
            MAX_STREAM_DATA frame is sent. */
         ngtcp2_tstamp last_max_stream_data_ts;
@@ -123,6 +129,12 @@ struct ngtcp2_strm {
            is counted to loss_count.  It is used to avoid to count
            multiple STREAM frames in one lost packet. */
         int64_t last_lost_pkt_num;
+        /* stop_sending_app_error_code is the application specific
+           error code that is sent along with STOP_SENDING. */
+        uint64_t stop_sending_app_error_code;
+        /* reset_stream_app_error_code is the application specific
+           error code that is sent along with RESET_STREAM. */
+        uint64_t reset_stream_app_error_code;
       } tx;
 
       struct {
@@ -200,11 +212,8 @@ int ngtcp2_strm_recv_reordering(ngtcp2_strm *strm, const uint8_t *data,
 /*
  * ngtcp2_strm_update_rx_offset tells that data up to offset bytes are
  * received in order.
- *
- * NGTCP2_ERR_NOMEM
- *     Out of memory
  */
-int ngtcp2_strm_update_rx_offset(ngtcp2_strm *strm, uint64_t offset);
+void ngtcp2_strm_update_rx_offset(ngtcp2_strm *strm, uint64_t offset);
 
 /*
  * ngtcp2_strm_shutdown shutdowns |strm|.  |flags| should be

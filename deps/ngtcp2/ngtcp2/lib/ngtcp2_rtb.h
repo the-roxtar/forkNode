@@ -35,6 +35,7 @@
 #include "ngtcp2_ksl.h"
 #include "ngtcp2_pq.h"
 #include "ngtcp2_objalloc.h"
+#include "ngtcp2_pktns_id.h"
 
 typedef struct ngtcp2_conn ngtcp2_conn;
 typedef struct ngtcp2_pktns ngtcp2_pktns;
@@ -43,6 +44,7 @@ typedef struct ngtcp2_qlog ngtcp2_qlog;
 typedef struct ngtcp2_strm ngtcp2_strm;
 typedef struct ngtcp2_rst ngtcp2_rst;
 typedef struct ngtcp2_cc ngtcp2_cc;
+typedef struct ngtcp2_conn_stat ngtcp2_conn_stat;
 
 /* NGTCP2_FRAME_CHAIN_BINDER_FLAG_NONE indicates that no flag is
    set. */
@@ -84,7 +86,7 @@ struct ngtcp2_frame_chain {
   };
 };
 
-ngtcp2_objalloc_def(frame_chain, ngtcp2_frame_chain, oplent);
+ngtcp2_objalloc_decl(frame_chain, ngtcp2_frame_chain, oplent);
 
 /*
  * ngtcp2_bind_frame_chains binds two frame chains |a| and |b| using
@@ -103,10 +105,6 @@ int ngtcp2_bind_frame_chains(ngtcp2_frame_chain *a, ngtcp2_frame_chain *b,
 /* NGTCP2_MAX_STREAM_DATACNT is the maximum number of ngtcp2_vec that
    a ngtcp2_stream can include. */
 #define NGTCP2_MAX_STREAM_DATACNT 256
-
-/* NGTCP2_MAX_CRYPTO_DATACNT is the maximum number of ngtcp2_vec that
-   a ngtcp2_crypto can include. */
-#define NGTCP2_MAX_CRYPTO_DATACNT 8
 
 /*
  * ngtcp2_frame_chain_new allocates ngtcp2_frame_chain object and
@@ -147,20 +145,9 @@ int ngtcp2_frame_chain_stream_datacnt_objalloc_new(ngtcp2_frame_chain **pfrc,
                                                    ngtcp2_objalloc *objalloc,
                                                    const ngtcp2_mem *mem);
 
-/*
- * ngtcp2_frame_chain_crypto_datacnt_objalloc_new works like
- * ngtcp2_frame_chain_new, but it allocates enough data to store
- * additional |datacnt| - 1 ngtcp2_vec object after ngtcp2_crypto
- * object.  If no additional space is required,
- * ngtcp2_frame_chain_objalloc_new is called internally.
- */
-int ngtcp2_frame_chain_crypto_datacnt_objalloc_new(ngtcp2_frame_chain **pfrc,
-                                                   size_t datacnt,
-                                                   ngtcp2_objalloc *objalloc,
-                                                   const ngtcp2_mem *mem);
-
 int ngtcp2_frame_chain_new_token_objalloc_new(ngtcp2_frame_chain **pfrc,
-                                              const ngtcp2_vec *token,
+                                              const uint8_t *token,
+                                              size_t tokenlen,
                                               ngtcp2_objalloc *objalloc,
                                               const ngtcp2_mem *mem);
 
@@ -268,7 +255,7 @@ struct ngtcp2_rtb_entry {
   };
 };
 
-ngtcp2_objalloc_def(rtb_entry, ngtcp2_rtb_entry, oplent);
+ngtcp2_objalloc_decl(rtb_entry, ngtcp2_rtb_entry, oplent);
 
 /*
  * ngtcp2_rtb_entry_new allocates ngtcp2_rtb_entry object, and assigns
@@ -347,7 +334,7 @@ typedef struct ngtcp2_rtb {
  */
 void ngtcp2_rtb_init(ngtcp2_rtb *rtb, ngtcp2_pktns_id pktns_id,
                      ngtcp2_strm *crypto, ngtcp2_rst *rst, ngtcp2_cc *cc,
-                     ngtcp2_log *log, ngtcp2_qlog *qlog,
+                     int64_t cc_pkt_num, ngtcp2_log *log, ngtcp2_qlog *qlog,
                      ngtcp2_objalloc *rtb_entry_objalloc,
                      ngtcp2_objalloc *frc_objalloc, const ngtcp2_mem *mem);
 
