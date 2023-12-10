@@ -6039,12 +6039,6 @@ static int conn_verify_fixed_bit(ngtcp2_conn *conn, ngtcp2_pkt_hd *hd) {
     return NGTCP2_ERR_INVALID_ARGUMENT;
   }
 
-  /* TODO we have no information that we enabled grease_quic_bit in
-     the previous connection. */
-  if (!conn->local.transport_params.grease_quic_bit) {
-    return NGTCP2_ERR_INVALID_ARGUMENT;
-  }
-
   return 0;
 }
 
