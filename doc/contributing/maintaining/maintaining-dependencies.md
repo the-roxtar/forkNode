@@ -27,7 +27,7 @@ This a list of all the dependencies:
 * [npm 9.6.7][]
 * [openssl 3.0.8][]
 * [postject 1.0.0-alpha.6][]
-* [simdjson 3.6.2][]
+* [simdjson 3.6.3][]
 * [simdutf 4.0.4][]
 * [undici 5.28.2][]
 * [uvwasi 0.0.19][]
@@ -287,7 +287,7 @@ See [maintaining-openssl][] for more informations.
 The [postject](https://github.com/nodejs/postject) dependency is used for the
 [Single Executable strategic initiative](https://github.com/nodejs/single-executable).
 
-### simdjson 3.6.2
+### simdjson 3.6.3
 
 The [simdjson](https://github.com/simdjson/simdjson) dependency is
 a C++ library for fast JSON parsing.
